@@ -2,7 +2,8 @@ venv/
 env/
 .venv/
 .env/
-
+.env
+*.env
 # Generated content - can be recreated from source PDFs
 extracted_text/
 extracted_content/
