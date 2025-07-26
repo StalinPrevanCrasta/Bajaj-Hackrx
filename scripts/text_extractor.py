@@ -1,44 +1,46 @@
-# scripts/text_extractor.py
+# scripts/text_extractor.py (Updated for OCR)
 
 import os
-from langchain_community.document_loaders import PyMuPDFLoader, DirectoryLoader
+# IMPORTANT: Change the import to use UnstructuredPDFLoader
+from langchain_community.document_loaders import UnstructuredPDFLoader, DirectoryLoader
 
-# Define the path to your source documents relative to the project root
+# Define paths relative to the project root
 DOCS_PATH = 'policy_docs/'
+OUTPUT_PATH = 'extracted_text/'
 
-def extract_text_from_pdfs():
-    """
-    Loads all PDF documents from a specified directory and extracts their text content.
-    """
+def extract_and_save_text_with_ocr():
+    os.makedirs(OUTPUT_PATH, exist_ok=True)
+
     if not os.path.exists(DOCS_PATH) or not os.listdir(DOCS_PATH):
         print(f"Error: The '{DOCS_PATH}' directory does not exist or is empty.")
-        print("Please create it and add your policy PDF files.")
         return
 
-    print(f"Loading documents from '{DOCS_PATH}'...")
+    print(f"Loading documents from '{DOCS_PATH}' with OCR enabled...")
     
-    # DirectoryLoader scans the folder for files matching the glob pattern
-    # and uses PyMuPDFLoader to process each PDF file found.
-    loader = DirectoryLoader(DOCS_PATH, glob='*.pdf', loader_cls=PyMuPDFLoader)
+    # IMPORTANT: Change the loader class here
+    # UnstructuredPDFLoader will automatically apply OCR to scanned pages.
+    loader = DirectoryLoader(DOCS_PATH, glob='*.pdf', loader_cls=UnstructuredPDFLoader)
     
-    # The .load() method extracts the text and returns a list of Document objects
     documents = loader.load()
 
     print(f"\n✅ Successfully loaded {len(documents)} document(s).")
-    print("--- Sample Extracted Content ---")
+    print(f"Saving extracted text to '{OUTPUT_PATH}'...")
 
-    # Loop through each loaded document and print its source and a content snippet
-    for i, doc in enumerate(documents):
-        # The 'metadata' attribute contains information like the source file path
-        source = doc.metadata.get('source', 'Unknown source')
-        # The 'page_content' attribute contains the extracted text
-        content_snippet = doc.page_content[:500] + "..." # Get the first 500 characters
+    for doc in documents:
+        source_path = doc.metadata.get('source', 'unknown.pdf')
+        original_filename = os.path.basename(source_path)
+        base_filename, _ = os.path.splitext(original_filename)
+        output_filename = f"{base_filename}.txt"
+        output_filepath = os.path.join(OUTPUT_PATH, output_filename)
         
-        print(f"\n📄 Document {i+1}: {os.path.basename(source)}")
-        print("-------------------------------------------------")
-        print(content_snippet)
-        print("-------------------------------------------------")
+        try:
+            with open(output_filepath, 'w', encoding='utf-8') as f:
+                f.write(doc.page_content)
+            print(f"   -> Saved: {output_filename}")
+        except Exception as e:
+            print(f"   -> Error saving {output_filename}: {e}")
 
+    print("\nExtraction and saving complete.")
 
 if __name__ == '__main__':
-    extract_text_from_pdfs()
+    extract_and_save_text_with_ocr()
