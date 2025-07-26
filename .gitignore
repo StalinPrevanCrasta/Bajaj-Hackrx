@@ -2,3 +2,24 @@ venv/
 env/
 .venv/
 .env/
+
+# Generated content - can be recreated from source PDFs
+extracted_text/
+extracted_content/
+
+# Database files
+db/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# IDE files
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
