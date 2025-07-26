@@ -1,12 +1,13 @@
 import os
 import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain.schema import Document
 from langchain_google_genai import GoogleGenerativeAI
 from dotenv import load_dotenv
 import logging
+import re
 
 # Load environment variables
 load_dotenv()
@@ -26,7 +27,7 @@ class PolicyExpertRAG:
         
         genai.configure(api_key=api_key)
         self.llm = GoogleGenerativeAI(
-            model="gemini-pro",
+            model="gemini-2.0-flash",  # Updated model name
             google_api_key=api_key,
             temperature=0.1
         )
