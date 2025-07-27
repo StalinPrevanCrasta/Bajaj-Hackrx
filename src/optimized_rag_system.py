@@ -1,6 +1,7 @@
 import os
 import time
 import hashlib
+import json
 from functools import lru_cache
 import google.generativeai as genai
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -174,18 +175,28 @@ class OptimizedPolicyExpertRAG:
         return relevant_docs
     
     def generate_fast_response(self, query, relevant_docs):
-        """Generate optimized response"""
+        """Generate optimized response with structured JSON output"""
         if not relevant_docs:
-            return "No relevant information found in the policy documents."
+            return {
+                "status": "error",
+                "message": "No relevant information found in the policy documents.",
+                "query": query,
+                "sources": [],
+                "confidence": 0
+            }
         
         # Limit context size for faster processing
         max_context_length = 1500
         
         context_parts = []
         current_length = 0
+        sources = []
         
         for doc in relevant_docs:
             doc_text = doc.page_content
+            source = doc.metadata.get('source', 'Unknown')
+            sources.append(source)
+            
             if current_length + len(doc_text) > max_context_length:
                 remaining = max_context_length - current_length
                 doc_text = doc_text[:remaining]
@@ -197,7 +208,7 @@ class OptimizedPolicyExpertRAG:
         
         context = "\n\n".join(context_parts)
         
-        # Improved prompt for better responses
+        # Enhanced prompt for JSON-structured responses
         prompt = f"""You are an expert insurance advisor. Based on the following Bajaj Allianz policy information, provide a clear and helpful answer.
 
 POLICY INFORMATION:
@@ -207,14 +218,13 @@ USER QUESTION: {query}
 
 INSTRUCTIONS: Provide a direct, informative answer in 1-3 sentences. Use only the information provided above.
 
+Respond with ONLY the answer text, no JSON formatting needed - the system will structure it automatically.
+
 ANSWER:"""
 
         try:
-            print("🔄 Generating response...")
+            print("🔄 Generating JSON response...")
             response = self.llm.invoke(prompt)
-            
-            print(f"🔍 Raw response type: {type(response)}")  # Debug
-            print(f"🔍 Raw response: {repr(response)}")  # Debug - full response
             
             # Enhanced response handling
             result = None
@@ -229,22 +239,42 @@ ANSWER:"""
             elif hasattr(response, '__str__'):
                 result = str(response).strip()
             
-            print(f"✅ Processed result: '{result}'")  # Debug
-            
             # Check if we got a valid response
             if result and len(result) > 10:  # Must be more than 10 characters
-                return result
+                return {
+                    "status": "success",
+                    "answer": result,
+                    "query": query,
+                    "sources": list(set(sources)),  # Remove duplicates
+                    "confidence": min(0.9, len(relevant_docs) * 0.3),  # Confidence based on doc count
+                    "response_time": time.time()
+                }
             else:
                 # Fallback: Try to extract key information directly from context
                 fallback_response = self.extract_direct_answer(query, context)
-                return fallback_response
+                return {
+                    "status": "partial",
+                    "answer": fallback_response,
+                    "query": query,
+                    "sources": list(set(sources)),
+                    "confidence": 0.5,
+                    "response_time": time.time(),
+                    "note": "Fallback response generated"
+                }
                 
         except Exception as e:
             print(f"❌ Error in response generation: {str(e)}")
-            return f"Error processing query: {str(e)}"
+            return {
+                "status": "error",
+                "message": f"Error processing query: {str(e)}",
+                "query": query,
+                "sources": sources,
+                "confidence": 0,
+                "response_time": time.time()
+            }
     
     def extract_direct_answer(self, query, context):
-        """Fallback method to extract direct answer from context"""
+        """Fallback method to extract direct answer from context - returns text only"""
         # Simple keyword-based extraction for common queries
         query_lower = query.lower()
         context_lower = context.lower()
@@ -276,8 +306,8 @@ ANSWER:"""
         else:
             return "Based on the policy document, this information requires more specific details from the policy terms."
     
-    def fast_query(self, user_question):
-        """Ultra-fast query processing with optimizations"""
+    def fast_query(self, user_question, return_json=True):
+        """Ultra-fast query processing with JSON output option"""
         start_time = time.time()
         
         # Clear cache periodically to prevent memory issues
@@ -288,10 +318,16 @@ ANSWER:"""
         
         # Check full query cache first
         query_hash = hashlib.md5(user_question.encode()).hexdigest()
-        if query_hash in self.query_cache:
+        cache_key = f"json_{query_hash}" if return_json else f"text_{query_hash}"
+        
+        if cache_key in self.query_cache:
             elapsed = time.time() - start_time
+            cached_response = self.query_cache[cache_key]
+            if return_json and isinstance(cached_response, dict):
+                cached_response["cached"] = True
+                cached_response["response_time"] = elapsed
             print(f"⚡ Cached response in {elapsed:.2f}s")
-            return self.query_cache[query_hash]
+            return cached_response
         
         print(f"🔍 Processing: {user_question}")
         
@@ -299,34 +335,72 @@ ANSWER:"""
         relevant_docs = self.fast_similarity_search(user_question, k=2)
         
         if not relevant_docs:
-            return "No relevant information found in the policy documents."
+            no_results = {
+                "status": "error",
+                "message": "No relevant information found in the policy documents.",
+                "query": user_question,
+                "sources": [],
+                "confidence": 0,
+                "response_time": time.time() - start_time
+            }
+            return no_results if return_json else no_results["message"]
         
-        # Generate response
+        # Generate response (always returns JSON now)
         response = self.generate_fast_response(user_question, relevant_docs)
         
-        # Cache the complete response
-        self.query_cache[query_hash] = response
-        
+        # Add timing information
         elapsed = time.time() - start_time
-        print(f"⚡ Response generated in {elapsed:.2f}s")
-        return response
+        response["response_time"] = elapsed
+        response["cached"] = False
+        
+        # Cache the complete response
+        self.query_cache[cache_key] = response
+        
+        print(f"⚡ JSON response generated in {elapsed:.2f}s")
+        
+        # Return JSON or text based on parameter
+        if return_json:
+            return response
+        else:
+            # For backward compatibility, return just the answer text
+            return response.get("answer", response.get("message", "No answer available"))
     
-    def batch_query(self, questions):
-        """Process multiple queries efficiently"""
+    def batch_query(self, questions, return_json=True):
+        """Process multiple queries efficiently with JSON output"""
         print(f"🔄 Processing {len(questions)} queries in batch...")
         results = []
         
         start_time = time.time()
         for i, question in enumerate(questions, 1):
             print(f"  📝 Query {i}/{len(questions)}")
-            response = self.fast_query(question)
-            results.append((question, response))
+            response = self.fast_query(question, return_json=return_json)
+            
+            if return_json:
+                results.append({
+                    "query_index": i,
+                    "question": question,
+                    "response": response
+                })
+            else:
+                results.append((question, response))
         
         total_time = time.time() - start_time
         avg_time = total_time / len(questions)
-        print(f"✅ Batch completed in {total_time:.2f}s (avg: {avg_time:.2f}s per query)")
         
-        return results
+        if return_json:
+            batch_result = {
+                "status": "success",
+                "total_queries": len(questions),
+                "total_time": total_time,
+                "average_time": avg_time,
+                "results": results,
+                "timestamp": time.time()
+            }
+            print(f"✅ Batch completed in {total_time:.2f}s (avg: {avg_time:.2f}s per query)")
+            return batch_result
+        else:
+            print(f"✅ Batch completed in {total_time:.2f}s (avg: {avg_time:.2f}s per query)")
+            return results
 
 # Example usage and testing
 if __name__ == "__main__":
@@ -337,6 +411,7 @@ if __name__ == "__main__":
     try:
         optimized_rag = OptimizedPolicyExpertRAG()
         
+        optimized_rag.create_optimized_vector_store()
         # Test queries
         test_queries = [
             "What is covered under mental illness treatment?",
@@ -344,11 +419,26 @@ if __name__ == "__main__":
             "What are the exclusions for dental treatment?"
         ]
         
-        # Single query test
+        # Single query test with JSON output
+        print("\n🔍 Testing JSON Output:")
         for query in test_queries:
-            print(f"\n🔍 Testing: {query}")
-            response = optimized_rag.fast_query(query)
-            print(f"📝 Response: {response}")
+            print(f"\n❓ Query: {query}")
+            json_response = optimized_rag.fast_query(query, return_json=True)
+            print(f"📊 JSON Response:")
+            print(json.dumps(json_response, indent=2, default=str))
+        
+        # Test text output for backward compatibility
+        print(f"\n🔍 Testing Text Output (Backward Compatibility):")
+        for query in test_queries[:1]:  # Just test one
+            print(f"\n❓ Query: {query}")
+            text_response = optimized_rag.fast_query(query, return_json=False)
+            print(f"📝 Text Response: {text_response}")
+        
+        # Test batch JSON output
+        print(f"\n🔄 Testing Batch JSON Output:")
+        batch_result = optimized_rag.batch_query(test_queries[:2], return_json=True)
+        print(f"📊 Batch JSON Response:")
+        print(json.dumps(batch_result, indent=2, default=str))
         
         print(f"\n{'='*50}")
         print("✅ All tests completed successfully!")

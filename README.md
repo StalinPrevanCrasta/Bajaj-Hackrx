@@ -15,21 +15,21 @@ A Retrieval-Augmented Generation (RAG) system that acts as an intelligent insura
 
 ```
 Bajaj-Hackrx/
-├── 📁 policy_docs/          # Source PDF files
+├── 📁 policy_docs/              # Source PDF files
 │   └── BAJHLIP23020V012223.pdf
-├── 📁 extracted_text/       # Extracted text from PDFs (auto-generated)
+├── 📁 extracted_text/           # Extracted text from PDFs (auto-generated)
 │   └── BAJHLIP23020V012223.txt
-├── 📁 scripts/              # Utility scripts
-│   └── text_extractor.py    # PDF text extraction with OCR
-├── 📁 src/                  # Main application code
-│   ├── rag_system.py        # Core RAG implementation
-│   └── policy_expert_cli.py # Command-line interface
-├── 📁 db/                   # Vector store database (auto-generated)
-├── 📁 test_docs/            # Additional test documents
-├── .env                     # Environment variables (create this)
-├── .gitignore              # Git ignore rules
-├── requirements.txt         # Python dependencies
-└── README.md               # This file
+├── 📁 scripts/                  # Utility scripts
+│   └── text_extractor.py         # PDF text extraction with OCR
+├── 📁 src/                      # Main application code
+│   ├── optimized_rag_system.py   # Core RAG implementation
+│   └── optimized_cli.py          # Command-line interface
+├── 📁 db/                       # Vector store database (auto-generated)
+├── 📁 test_docs/                # Additional test documents
+├── .env                          # Environment variables (create this)
+├── .gitignore                    # Git ignore rules
+├── requirements.txt              # Python dependencies
+└── README.md                     # This file
 ```
 
 ## 🚀 Quick Start
@@ -85,10 +85,10 @@ python scripts/text_extractor.py
 
 ```bash
 # Test the system with example queries
-python src/rag_system.py
+python src/optimized_rag_system.py
 
 # Or use the interactive CLI
-python src/policy_expert_cli.py
+python src/optimized_cli.py
 ```
 
 ## 💡 Usage Examples
@@ -96,7 +96,7 @@ python src/policy_expert_cli.py
 ### CLI Interface
 
 ```bash
-python src/policy_expert_cli.py
+python src/optimized_cli.py
 ```
 
 **Sample Questions to Ask:**
@@ -126,14 +126,14 @@ print(response)
 - Supports scanned documents
 - Saves extracted text to `extracted_text/` directory
 
-### 2. RAG System (`src/rag_system.py`)
+### 2. RAG System (`src/optimized_rag_system.py`)
 - **Document Loading**: Processes extracted text files
 - **Chunking**: Splits documents into manageable chunks
 - **Embeddings**: Creates vector representations using sentence-transformers
 - **Vector Store**: Uses FAISS for efficient similarity search
 - **AI Generation**: Uses Google Gemini API for responses
 
-### 3. CLI Interface (`src/policy_expert_cli.py`)
+### 3. CLI Interface (`src/optimized_cli.py`)
 - Interactive command-line interface
 - Real-time policy question answering
 - Session management

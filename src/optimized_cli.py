@@ -1,6 +1,7 @@
 from optimized_rag_system import OptimizedPolicyExpertRAG
 import sys
 import time
+import json
 from datetime import datetime
 
 class OptimizedPolicyCLI:
@@ -8,6 +9,7 @@ class OptimizedPolicyCLI:
         self.rag_system = None
         self.session_queries = []
         self.session_start = datetime.now()
+        self.show_json = False  # Toggle for JSON display
         
     def initialize_system(self):
         """Initialize the optimized RAG system"""
@@ -33,6 +35,7 @@ class OptimizedPolicyCLI:
         print("  stats    - Show session statistics")
         print("  clear    - Clear query cache")
         print("  batch    - Enter batch query mode")
+        print("  json     - Toggle JSON output display")
         print("  quit/exit - End session")
         print("\n💡 Sample Questions:")
         print("  • What is covered under mental illness treatment?")
@@ -76,6 +79,16 @@ class OptimizedPolicyCLI:
         else:
             print("❌ System not initialized.")
     
+    def toggle_json_display(self):
+        """Toggle JSON output display"""
+        self.show_json = not self.show_json
+        status = "ON" if self.show_json else "OFF"
+        print(f"📊 JSON output display: {status}")
+        if self.show_json:
+            print("💡 Responses will now show both formatted text and raw JSON")
+        else:
+            print("💡 Responses will show formatted text only")
+    
     def batch_query_mode(self):
         """Enter batch query mode"""
         print("\n🔄 Batch Query Mode")
@@ -102,21 +115,35 @@ class OptimizedPolicyCLI:
         start_time = time.time()
         
         try:
-            results = self.rag_system.batch_query(queries)
+            # Use the new batch JSON system
+            batch_result = self.rag_system.batch_query(queries, return_json=True)
             total_time = time.time() - start_time
             
             print(f"\n📋 Batch Results (completed in {total_time:.2f}s):")
             print("="*60)
             
-            for i, (query, response) in enumerate(results, 1):
-                print(f"\n{i}. Q: {query}")
-                print(f"   A: {response}")
+            for result in batch_result['results']:
+                query_index = result['query_index']
+                question = result['question']
+                response_data = result['response']
+                
+                answer = response_data.get('answer', response_data.get('message', 'No response'))
+                status = response_data.get('status', 'unknown')
+                confidence = response_data.get('confidence', 0)
+                
+                print(f"\n{query_index}. Q: {question}")
+                print(f"   A: {answer}")
+                
+                if status == 'partial':
+                    print(f"   ⚠️ Partial response (confidence: {confidence:.1f})")
+                elif status == 'success':
+                    print(f"   ✅ High confidence ({confidence:.1f})")
                 
                 # Add to session stats
                 self.session_queries.append({
-                    'query': query,
+                    'query': question,
                     'time': total_time / len(queries),  # Approximate individual time
-                    'cached': False
+                    'cached': response_data.get('cached', False)
                 })
                 
         except Exception as e:
@@ -125,29 +152,53 @@ class OptimizedPolicyCLI:
     def process_query(self, query):
         """Process a single query"""
         print(f"\n🔍 Searching policy documents...")
-        
+
         start_time = time.time()
         try:
-            response = self.rag_system.fast_query(query)
+            # Use the new JSON output system
+            json_response = self.rag_system.fast_query(query, return_json=True)
             elapsed_time = time.time() - start_time
-            
-            # Add to session statistics
+
+            # Extract information from JSON response
+            status = json_response.get('status', 'unknown')
+            answer = json_response.get('answer', json_response.get('message', 'No response'))
+            cached = json_response.get('cached', False)
+            confidence = json_response.get('confidence', 0)
+            sources = json_response.get('sources', [])
+
             self.session_queries.append({
                 'query': query,
                 'time': elapsed_time,
-                'cached': elapsed_time < 0.5  # Assume cached if very fast
+                'cached': cached
             })
-            
+
             print(f"\n💡 **Policy Expert Response** (⏱️ {elapsed_time:.2f}s):")
             print("-" * 50)
-            print(response)
-            
-            # Show cache indicator
-            if elapsed_time < 0.5:
+            print(answer)
+
+            # Show additional info
+            if status == 'partial':
+                print(f"\n⚠️ Partial response (confidence: {confidence:.1f})")
+            elif status == 'success':
+                print(f"\n✅ High confidence response ({confidence:.1f})")
+            elif status == 'error':
+                print(f"\n❌ Error in response")
+
+            if sources:
+                print(f"📄 Sources: {', '.join(sources)}")
+
+            if cached:
                 print("\n💾 (Cached response)")
-            
+
+            # Show JSON if enabled
+            if self.show_json:
+                print(f"\n📊 **Raw JSON Response:**")
+                print("-" * 50)
+                print(json.dumps(json_response, indent=2, default=str))
+
         except Exception as e:
             print(f"❌ Error processing query: {e}")
+
     
     def run(self):
         """Main CLI loop"""
@@ -176,6 +227,8 @@ class OptimizedPolicyCLI:
                     self.show_session_stats()
                 elif query.lower() == 'clear':
                     self.clear_cache()
+                elif query.lower() == 'json':
+                    self.toggle_json_display()
                 elif query.lower() == 'batch':
                     self.batch_query_mode()
                 else:
