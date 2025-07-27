@@ -125,29 +125,28 @@ class OptimizedPolicyCLI:
     def process_query(self, query):
         """Process a single query"""
         print(f"\n🔍 Searching policy documents...")
-        
+
         start_time = time.time()
         try:
-            response = self.rag_system.fast_query(query)
+            response, cached = self.rag_system.fast_query(query)
             elapsed_time = time.time() - start_time
-            
-            # Add to session statistics
+
             self.session_queries.append({
                 'query': query,
                 'time': elapsed_time,
-                'cached': elapsed_time < 0.5  # Assume cached if very fast
+                'cached': cached
             })
-            
+
             print(f"\n💡 **Policy Expert Response** (⏱️ {elapsed_time:.2f}s):")
             print("-" * 50)
             print(response)
-            
-            # Show cache indicator
-            if elapsed_time < 0.5:
+
+            if cached:
                 print("\n💾 (Cached response)")
-            
+
         except Exception as e:
             print(f"❌ Error processing query: {e}")
+
     
     def run(self):
         """Main CLI loop"""
