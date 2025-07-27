@@ -27,7 +27,7 @@ class PolicyExpertRAG:
         
         genai.configure(api_key=api_key)
         self.llm = GoogleGenerativeAI(
-            model="gemini-2.0-flash",  # Updated model name
+            model="gemini-2.5-flash",  # Updated model name
             google_api_key=api_key,
             temperature=0.1
         )
@@ -150,27 +150,26 @@ class PolicyExpertRAG:
         
         # Create expert prompt
         prompt = f"""
-You are an expert insurance policy advisor specializing in Bajaj Allianz insurance policies. 
+You are an expert insurance policy advisor specializing in Bajaj Allianz insurance policies.
 You have deep knowledge of policy terms, conditions, coverage, exclusions, and claim procedures.
 
-Based on the following policy documents, provide a comprehensive and accurate answer to the user's question.
-Always cite specific policy sections when applicable and be precise about coverage details.
+Based on the following policy documents, provide a short, clear, and accurate answer to the user's question.
 
 POLICY DOCUMENTS:
 {context}
 
-USER QUESTION: {query}
+USER QUESTION:
+{query}
 
 INSTRUCTIONS:
-1. Provide accurate information based only on the policy documents provided
-2. If information is not available in the documents, clearly state that
-3. Include relevant policy numbers (UIN) when applicable
-4. Explain technical terms in simple language
-5. If the question involves coverage, mention any relevant exclusions or limitations
-6. For claim-related queries, provide step-by-step guidance
-
-RESPONSE:
+1. Answer in one or two concise sentences, using simple and professional language.
+2. Base your answer only on the provided policy documents — do NOT assume or use outside information.
+3. If the answer is not available in the documents, respond with: "This information is not available in the provided policy documents."
+4. Include specific policy terms (e.g., waiting period, sub-limit, UIN) if mentioned in the documents.
+5. Explain any technical terms briefly if they appear in the answer.
+6. Do NOT return JSON or lists — just a plain text answer.
 """
+
         
         try:
             # Generate response using Gemini
