@@ -17,6 +17,13 @@ class OptimizedPolicyCLI:
         print("="*60)
         print("🚀 Initializing optimized system...")
         
+        # Show device information
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"🖥️  Device: {device.upper()}")
+        if torch.cuda.is_available():
+            print(f"🎯 GPU: {torch.cuda.get_device_name(0)}")
+        
         start_time = time.time()
         try:
             self.rag_system = OptimizedPolicyExpertRAG()
@@ -58,8 +65,15 @@ class OptimizedPolicyCLI:
         
         session_duration = (datetime.now() - self.session_start).total_seconds()
         
+        # Add device information
+        import torch
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
         print(f"\n📊 Session Statistics:")
         print(f"   Session Duration: {session_duration:.0f}s")
+        print(f"   Device Used: {device.upper()}")
+        if torch.cuda.is_available():
+            print(f"   GPU Memory: {torch.cuda.memory_allocated(0) / 1024**2:.1f}MB allocated")
         print(f"   Total Queries: {len(self.session_queries)}")
         print(f"   Average Response Time: {avg_time:.2f}s")
         print(f"   Fastest Query: {fastest['time']:.2f}s")

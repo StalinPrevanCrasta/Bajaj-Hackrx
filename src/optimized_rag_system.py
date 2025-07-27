@@ -23,14 +23,27 @@ class OptimizedPolicyExpertRAG:
         self.preload_system()
         
     def setup_optimized_components(self):
-        """Setup all components with optimizations"""
+        """Setup all components with optimizations and GPU support"""
         print("🔧 Setting up optimized components...")
         
-        # Faster, smaller embedding model - FIXED VERSION
+        import torch
+        
+        # Auto-detect best device
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"🖥️  Using device: {device.upper()}")
+        
+        if torch.cuda.is_available():
+            print(f"🎯 GPU: {torch.cuda.get_device_name(0)}")
+            print(f"💾 GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB")
+            print("⚡ GPU acceleration enabled for embeddings")
+        else:
+            print("💻 Using CPU - for better performance, consider GPU setup")
+        
+        # Faster, smaller embedding model with GPU support
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/paraphrase-MiniLM-L3-v2",
             model_kwargs={
-                'device': 'cpu'
+                'device': device  # Will use GPU if available
             }
             # Removed encode_kwargs completely to avoid conflicts
         )

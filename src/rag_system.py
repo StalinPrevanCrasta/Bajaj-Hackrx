@@ -33,10 +33,22 @@ class PolicyExpertRAG:
         )
         
     def setup_embeddings(self):
-        """Initialize embeddings model"""
+        """Initialize embeddings model with GPU support"""
+        import torch
+        
+        # Auto-detect best device
+        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        print(f"🖥️  Using device: {device.upper()}")
+        
+        if torch.cuda.is_available():
+            print(f"🎯 GPU: {torch.cuda.get_device_name(0)}")
+            print(f"💾 GPU Memory: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f}GB")
+        else:
+            print("💻 Using CPU - for better performance, consider GPU setup")
+        
         self.embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/all-MiniLM-L6-v2",
-            model_kwargs={'device': 'cpu'}
+            model_kwargs={'device': device}  # Will use GPU if available
         )
     
     def load_policy_documents(self, extracted_text_path="extracted_text/"):
