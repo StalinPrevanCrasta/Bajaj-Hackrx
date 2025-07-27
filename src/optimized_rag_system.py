@@ -337,6 +337,7 @@ if __name__ == "__main__":
     try:
         optimized_rag = OptimizedPolicyExpertRAG()
         
+        optimized_rag.create_optimized_vector_store()
         # Test queries
         test_queries = [
             "What is covered under mental illness treatment?",
